@@ -165,6 +165,37 @@ static const enum ld_plugin_tag tv_header_tags[] =
   LDPT_SET_EXTRA_LIBRARY_PATH
 };
 
+static const char *lto_kind_str[5] =
+{
+  "DEF",
+  "WEAKDEF",
+  "UNDEF",
+  "WEAKUNDEF",
+  "COMMON"
+};
+
+static const char *lto_resolution_str[10] =
+{
+  "UNKNOWN",
+  "UNDEF",
+  "PREVAILING_DEF",
+  "PREVAILING_DEF_IRONLY",
+  "PREEMPTED_REG",
+  "PREEMPTED_IR",
+  "RESOLVED_IR",
+  "RESOLVED_EXEC",
+  "RESOLVED_DYN",
+  "PREVAILING_DEF_IRONLY_EXP",
+};
+
+const char *lto_visibility_str[4] =
+{
+  "DEFAULT",
+  "PROTECTED",
+  "INTERNAL",
+  "HIDDEN"
+};
+
 /* How many entries in the constant leading part of the tv array.  */
 static const size_t tv_header_size = ARRAY_SIZE (tv_header_tags);
 
@@ -777,9 +808,11 @@ get_symbols (const void *handle, int nsyms, struct ld_plugin_symbol *syms,
       syms[n].resolution = res;
       if (report_plugin_symbols)
 	einfo (_("%P: %pB: symbol `%s' "
-		 "definition: %d, visibility: %d, resolution: %d\n"),
+		 "definition: %s, visibility: %s, resolution: %s\n"),
 	       abfd, syms[n].name,
-	       syms[n].def, syms[n].visibility, res);
+	       lto_kind_str[syms[n].def],
+	       lto_visibility_str[syms[n].visibility],
+	       lto_resolution_str[res]);
     }
   return LDPS_OK;
 }
