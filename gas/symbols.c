@@ -151,6 +151,33 @@ struct local_symbol
 #endif
 };
 
+struct local_symbol_entry
+{
+  const char *symbol_name;
+  void *symbol;
+};
+
+/* Hash function for a local_symbol_entry.  */
+
+static hashval_t
+hash_local_symbol_entry (const void *e)
+{
+  const struct local_symbol_entry *entry = (const struct local_symbol_entry *) e;
+  return htab_hash_string (entry->symbol_name);
+}
+
+/* Equality function for a local_symbol_entry.  */
+
+static int
+eq_local_symbol_entry (const void *a, const void *b)
+{
+  const struct local_symbol_entry *ea = (const struct local_symbol_entry *) a;
+  const struct local_symbol_entry *eb = (const struct local_symbol_entry *) b;
+
+  return strcmp (ea->symbol_name, eb->symbol_name) == 0;
+}
+
+
 #define local_symbol_converted_p(l) ((l)->lsy_section == reg_section)
 #define local_symbol_mark_converted(l) ((l)->lsy_section = reg_section)
 #define local_symbol_resolved_p(l) ((l)->lsy_flags.sy_resolved)
@@ -172,7 +199,7 @@ extern int new_broken_words;
 static struct hash_control *sy_hash;
 
 /* Table of local symbols.  */
-static struct hash_control *local_hash;
+static struct htab *local_hash;
 
 /* Below are commented in "symbols.h".  */
 symbolS *symbol_rootP;
@@ -340,7 +367,12 @@ local_symbol_make (const char *name, segT section, valueT val, fragS *frag)
   local_symbol_set_frag (ret, frag);
   ret->lsy_value = val;
 
-  hash_jam (local_hash, name_copy, (void *) ret);
+  struct local_symbol_entry *entry = XNEW (struct local_symbol_entry);
+  entry->symbol_name = name_copy;
+  entry->symbol = ret;
+
+  void **slot = htab_find_slot (local_hash, entry, INSERT);
+  *slot = entry;
 
   return ret;
 }
@@ -377,7 +409,11 @@ local_symbol_convert (struct local_symbol *locsym)
   local_symbol_mark_converted (locsym);
   local_symbol_set_real_symbol (locsym, ret);
 
-  hash_jam (local_hash, locsym->lsy_name, NULL);
+  struct local_symbol_entry *entry = XNEW (struct local_symbol_entry);
+  entry->symbol_name = locsym->lsy_name;
+  entry->symbol = NULL;
+  void **slot = htab_find_slot (local_hash, entry, INSERT);
+  *slot = entry;
 
   return ret;
 }
@@ -623,11 +659,11 @@ symbol_table_insert (symbolS *symbolP)
 
   if (LOCAL_SYMBOL_CHECK (symbolP))
     {
-      error_string = hash_jam (local_hash, S_GET_NAME (symbolP),
-			       (void *) symbolP);
-      if (error_string != NULL)
-	as_fatal (_("inserting \"%s\" into symbol table failed: %s"),
-		  S_GET_NAME (symbolP), error_string);
+      struct local_symbol_entry *entry = XNEW (struct local_symbol_entry);
+      entry->symbol_name = S_GET_NAME (symbolP);
+      entry->symbol = (struct local_symbol *) symbolP;
+      void **slot = htab_find_slot (local_hash, entry, INSERT);
+      *slot = entry;
       return;
     }
 
@@ -869,12 +905,12 @@ symbol_find_exact (const char *name)
 symbolS *
 symbol_find_exact_noref (const char *name, int noref)
 {
-  struct local_symbol *locsym;
   symbolS* sym;
 
-  locsym = (struct local_symbol *) hash_find (local_hash, name);
-  if (locsym != NULL)
-    return (symbolS *) locsym;
+  struct local_symbol_entry needle = { name, NULL };
+  struct local_symbol_entry *entry = htab_find (local_hash, &needle);
+  if (entry != NULL && entry->symbol)
+    return (symbolS *) entry->symbol;
 
   sym = ((symbolS *) hash_find (sy_hash, name));
 
@@ -1670,15 +1706,16 @@ resolve_symbol_value (symbolS *symp)
   return final_val;
 }
 
-static void resolve_local_symbol (const char *, void *);
-
 /* A static function passed to hash_traverse.  */
 
-static void
-resolve_local_symbol (const char *key ATTRIBUTE_UNUSED, void *value)
+static int
+resolve_local_symbol (void **slot, void *arg ATTRIBUTE_UNUSED)
 {
-  if (value != NULL)
-    resolve_symbol_value ((symbolS *) value);
+  struct local_symbol_entry *entry = *((struct local_symbol_entry **) slot);
+  if (entry->symbol != NULL)
+    resolve_symbol_value ((symbolS *) entry->symbol);
+
+  return 1;
 }
 
 /* Resolve all local symbols.  */
@@ -1686,7 +1723,7 @@ resolve_local_symbol (const char *key ATTRIBUTE_UNUSED, void *value)
 void
 resolve_local_symbol_values (void)
 {
-  hash_traverse (local_hash, resolve_local_symbol);
+  htab_traverse (local_hash, resolve_local_symbol, NULL);
 }
 
 /* Obtain the current value of a symbol without changing any
@@ -2989,7 +3026,8 @@ symbol_begin (void)
   symbol_lastP = NULL;
   symbol_rootP = NULL;		/* In case we have 0 symbols (!!)  */
   sy_hash = hash_new ();
-  local_hash = hash_new ();
+  local_hash = htab_create_alloc (16, hash_local_symbol_entry, eq_local_symbol_entry,
+				  NULL, xcalloc, free);
 
   memset ((char *) (&abs_symbol), '\0', sizeof (abs_symbol));
 #if defined (EMIT_SECTION_SYMBOLS) || !defined (RELOC_REQUIRES_SYMBOL)
@@ -3245,7 +3283,7 @@ void
 symbol_print_statistics (FILE *file)
 {
   hash_print_statistics (file, "symbol table", sy_hash);
-  hash_print_statistics (file, "mini local symbol table", local_hash);
+  htab_print_statistics (file, "mini local symbol table", local_hash);
   fprintf (file, "%lu mini local symbols created, %lu converted\n",
 	   local_symbol_count, local_symbol_conversion_count);
 }

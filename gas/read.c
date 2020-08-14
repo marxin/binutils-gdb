@@ -31,7 +31,6 @@
    Another group of these functions is in the expr.c module.  */
 
 #include "as.h"
-#include "hashtab.h"
 #include "safe-ctype.h"
 #include "subsegs.h"
 #include "sb.h"

@@ -31,6 +31,7 @@
 #include "safe-ctype.h"
 #include "obstack.h"
 
+#define HASH_STATISTICS 1
 /* An entry in a hash table.  */
 
 struct hash_entry {
