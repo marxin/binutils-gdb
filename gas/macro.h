@@ -79,7 +79,7 @@ extern int macro_nest;
 
 /* The macro hash table.  */
 
-extern struct hash_control *macro_hash;
+extern struct htab *macro_hash;
 
 extern int buffer_and_nest (const char *, const char *, sb *,
 			    size_t (*) (sb *));

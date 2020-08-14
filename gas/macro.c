@@ -42,9 +42,36 @@
    || (x) == 'h' || (x) == 'H' \
    || (x) == 'd' || (x) == 'D')
 
+struct macro_hash_entry
+{
+  const char *name;
+  macro_entry *macro;
+};
+
+/* Hash function for a macro_hash_entry.  */
+
+static hashval_t
+hash_macro_entry (const void *e)
+{
+  const struct macro_hash_entry *entry = (const struct macro_hash_entry *) e;
+  return htab_hash_string (entry->name);
+}
+
+/* Equality function for a macro_hash_entry.  */
+
+static int
+eq_macro_entry (const void *a, const void *b)
+{
+  const struct macro_hash_entry *ea = (const struct macro_hash_entry *) a;
+  const struct macro_hash_entry *eb = (const struct macro_hash_entry *) b;
+
+  return strcmp (ea->name, eb->name) == 0;
+}
+
+
 /* The macro hash table.  */
 
-struct hash_control *macro_hash;
+struct htab *macro_hash;
 
 /* Whether any macros have been defined.  */
 
@@ -76,7 +103,8 @@ void
 macro_init (int alternate, int mri, int strip_at,
 	    size_t (*exp) (const char *, size_t, sb *, offsetT *))
 {
-  macro_hash = hash_new ();
+  macro_hash = htab_create_alloc (16, hash_macro_entry, eq_macro_entry,
+				  NULL, xcalloc, free);
   macro_defined = 0;
   macro_alternate = alternate;
   macro_mri = mri;
@@ -707,10 +735,18 @@ define_macro (size_t idx, sb *in, sb *label,
   /* And stick it in the macro hash table.  */
   for (idx = 0; idx < name.len; idx++)
     name.ptr[idx] = TOLOWER (name.ptr[idx]);
-  if (hash_find (macro_hash, macro->name))
+  struct macro_hash_entry needle = { macro->name, NULL };
+  struct macro_hash_entry *entry = htab_find (macro_hash, &needle);
+  if (entry != NULL && entry->macro != NULL)
     error = _("Macro `%s' was already defined");
   if (!error)
-    error = hash_jam (macro_hash, macro->name, (void *) macro);
+    {
+      entry = XNEW (struct macro_hash_entry);
+      entry->name = macro->name;
+      entry->macro = macro;
+      void **slot = htab_find_slot (macro_hash, entry, INSERT);
+      *slot = entry;
+    }
 
   if (namep != NULL)
     *namep = macro->name;
@@ -1253,7 +1289,9 @@ check_macro (const char *line, sb *expand,
   for (cls = copy; *cls != '\0'; cls ++)
     *cls = TOLOWER (*cls);
 
-  macro = (macro_entry *) hash_find (macro_hash, copy);
+  struct macro_hash_entry needle = { copy, NULL };
+  struct macro_hash_entry *entry = htab_find (macro_hash, &needle);
+  macro = entry != NULL ? entry->macro : NULL;
   free (copy);
 
   if (macro == NULL)
@@ -1283,7 +1321,7 @@ delete_macro (const char *name)
 {
   char *copy;
   size_t i, len;
-  macro_entry *macro;
+  struct macro_hash_entry *macro;
 
   len = strlen (name);
   copy = XNEWVEC (char, len + 1);
@@ -1294,14 +1332,19 @@ delete_macro (const char *name)
   /* We can only ask hash_delete to free memory if we are deleting
      macros in reverse order to their definition.
      So just clear out the entry.  */
-  if ((macro = (macro_entry *) hash_find (macro_hash, copy)) != NULL)
+  struct macro_hash_entry needle = { copy, NULL };
+  macro = htab_find (macro_hash, &needle);
+  if (macro != NULL && macro->macro != NULL)
     {
-      hash_jam (macro_hash, copy, NULL);
-      free_macro (macro);
+      struct macro_hash_entry *entry = XNEW (struct macro_hash_entry);
+      entry->name = copy;
+      entry->macro = NULL;
+      void **slot = htab_find_slot (macro_hash, entry, INSERT);
+      *slot = entry;
+      free_macro (macro->macro);
     }
   else
     as_warn (_("Attempt to purge non-existing macro `%s'"), copy);
-  free (copy);
 }
 
 /* Handle the MRI IRP and IRPC pseudo-ops.  These are handled as a
