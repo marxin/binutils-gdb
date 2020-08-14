@@ -151,28 +151,28 @@ struct local_symbol
 #endif
 };
 
-struct local_symbol_entry
+struct symbol_entry
 {
   const char *symbol_name;
   void *symbol;
 };
 
-/* Hash function for a local_symbol_entry.  */
+/* Hash function for a symbol_entry.  */
 
 static hashval_t
-hash_local_symbol_entry (const void *e)
+hash_symbol_entry (const void *e)
 {
-  const struct local_symbol_entry *entry = (const struct local_symbol_entry *) e;
+  const struct symbol_entry *entry = (const struct symbol_entry *) e;
   return htab_hash_string (entry->symbol_name);
 }
 
-/* Equality function for a local_symbol_entry.  */
+/* Equality function for a symbol_entry.  */
 
 static int
-eq_local_symbol_entry (const void *a, const void *b)
+eq_symbol_entry (const void *a, const void *b)
 {
-  const struct local_symbol_entry *ea = (const struct local_symbol_entry *) a;
-  const struct local_symbol_entry *eb = (const struct local_symbol_entry *) b;
+  const struct symbol_entry *ea = (const struct symbol_entry *) a;
+  const struct symbol_entry *eb = (const struct symbol_entry *) b;
 
   return strcmp (ea->symbol_name, eb->symbol_name) == 0;
 }
@@ -367,7 +367,7 @@ local_symbol_make (const char *name, segT section, valueT val, fragS *frag)
   local_symbol_set_frag (ret, frag);
   ret->lsy_value = val;
 
-  struct local_symbol_entry *entry = XNEW (struct local_symbol_entry);
+  struct symbol_entry *entry = XNEW (struct symbol_entry);
   entry->symbol_name = name_copy;
   entry->symbol = ret;
 
@@ -409,7 +409,7 @@ local_symbol_convert (struct local_symbol *locsym)
   local_symbol_mark_converted (locsym);
   local_symbol_set_real_symbol (locsym, ret);
 
-  struct local_symbol_entry *entry = XNEW (struct local_symbol_entry);
+  struct symbol_entry *entry = XNEW (struct symbol_entry);
   entry->symbol_name = locsym->lsy_name;
   entry->symbol = NULL;
   void **slot = htab_find_slot (local_hash, entry, INSERT);
@@ -659,7 +659,7 @@ symbol_table_insert (symbolS *symbolP)
 
   if (LOCAL_SYMBOL_CHECK (symbolP))
     {
-      struct local_symbol_entry *entry = XNEW (struct local_symbol_entry);
+      struct symbol_entry *entry = XNEW (struct symbol_entry);
       entry->symbol_name = S_GET_NAME (symbolP);
       entry->symbol = (struct local_symbol *) symbolP;
       void **slot = htab_find_slot (local_hash, entry, INSERT);
@@ -907,8 +907,8 @@ symbol_find_exact_noref (const char *name, int noref)
 {
   symbolS* sym;
 
-  struct local_symbol_entry needle = { name, NULL };
-  struct local_symbol_entry *entry = htab_find (local_hash, &needle);
+  struct symbol_entry needle = { name, NULL };
+  struct symbol_entry *entry = htab_find (local_hash, &needle);
   if (entry != NULL && entry->symbol)
     return (symbolS *) entry->symbol;
 
@@ -1711,7 +1711,7 @@ resolve_symbol_value (symbolS *symp)
 static int
 resolve_local_symbol (void **slot, void *arg ATTRIBUTE_UNUSED)
 {
-  struct local_symbol_entry *entry = *((struct local_symbol_entry **) slot);
+  struct symbol_entry *entry = *((struct symbol_entry **) slot);
   if (entry->symbol != NULL)
     resolve_symbol_value ((symbolS *) entry->symbol);
 
@@ -3026,7 +3026,7 @@ symbol_begin (void)
   symbol_lastP = NULL;
   symbol_rootP = NULL;		/* In case we have 0 symbols (!!)  */
   sy_hash = hash_new ();
-  local_hash = htab_create_alloc (16, hash_local_symbol_entry, eq_local_symbol_entry,
+  local_hash = htab_create_alloc (16, hash_symbol_entry, eq_symbol_entry,
 				  NULL, xcalloc, free);
 
   memset ((char *) (&abs_symbol), '\0', sizeof (abs_symbol));
