@@ -196,7 +196,7 @@ extern int new_broken_words;
 #endif
 
 /* symbol-name => struct symbol pointer */
-static struct hash_control *sy_hash;
+static struct htab *sy_hash;
 
 /* Table of local symbols.  */
 static struct htab *local_hash;
@@ -652,26 +652,20 @@ colon (/* Just seen "x:" - rattle symbols & frags.  */
 void
 symbol_table_insert (symbolS *symbolP)
 {
-  const char *error_string;
+  void **slot;
 
   know (symbolP);
   know (S_GET_NAME (symbolP));
 
+  struct symbol_entry *entry = XNEW (struct symbol_entry);
+  entry->symbol_name = S_GET_NAME (symbolP);
+  entry->symbol = (struct local_symbol *) symbolP;
   if (LOCAL_SYMBOL_CHECK (symbolP))
-    {
-      struct symbol_entry *entry = XNEW (struct symbol_entry);
-      entry->symbol_name = S_GET_NAME (symbolP);
-      entry->symbol = (struct local_symbol *) symbolP;
-      void **slot = htab_find_slot (local_hash, entry, INSERT);
-      *slot = entry;
-      return;
-    }
+    slot = htab_find_slot (local_hash, entry, INSERT);
+  else
+    slot = htab_find_slot (sy_hash, entry, INSERT);
 
-  if ((error_string = hash_jam (sy_hash, S_GET_NAME (symbolP), (void *) symbolP)))
-    {
-      as_fatal (_("inserting \"%s\" into symbol table failed: %s"),
-		S_GET_NAME (symbolP), error_string);
-    }				/* on error  */
+  *slot = entry;
 }
 
 /* If a symbol name does not exist, create it as undefined, and insert
@@ -905,14 +899,16 @@ symbol_find_exact (const char *name)
 symbolS *
 symbol_find_exact_noref (const char *name, int noref)
 {
-  symbolS* sym;
+  symbolS* sym = NULL;
 
   struct symbol_entry needle = { name, NULL };
   struct symbol_entry *entry = htab_find (local_hash, &needle);
   if (entry != NULL && entry->symbol)
     return (symbolS *) entry->symbol;
 
-  sym = ((symbolS *) hash_find (sy_hash, name));
+  entry = htab_find (sy_hash, &needle);
+  if (entry != NULL && entry->symbol)
+    sym = entry->symbol;
 
   /* Any references to the symbol, except for the reference in
      .weakref, must clear this flag, such that the symbol does not
@@ -3025,7 +3021,8 @@ symbol_begin (void)
 {
   symbol_lastP = NULL;
   symbol_rootP = NULL;		/* In case we have 0 symbols (!!)  */
-  sy_hash = hash_new ();
+  sy_hash = htab_create_alloc (16, hash_symbol_entry, eq_symbol_entry,
+			       NULL, xcalloc, free);
   local_hash = htab_create_alloc (16, hash_symbol_entry, eq_symbol_entry,
 				  NULL, xcalloc, free);
 
@@ -3282,7 +3279,7 @@ print_expr (expressionS *exp)
 void
 symbol_print_statistics (FILE *file)
 {
-  hash_print_statistics (file, "symbol table", sy_hash);
+  htab_print_statistics (file, "symbol table", sy_hash);
   htab_print_statistics (file, "mini local symbol table", local_hash);
   fprintf (file, "%lu mini local symbols created, %lu converted\n",
 	   local_symbol_count, local_symbol_conversion_count);
