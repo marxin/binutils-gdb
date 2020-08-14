@@ -63,7 +63,7 @@ typedef struct macro_struct
   sb sub;				/* Substitution text.  */
   int formal_count;			/* Number of formal args.  */
   formal_entry *formals;		/* Pointer to list of formal_structs.  */
-  struct hash_control *formal_hash;	/* Hash table of formals.  */
+  struct htab *formal_hash;	/* Hash table of formals.  */
   const char *name;			/* Macro name.  */
   const char *file;				/* File the macro was defined in.  */
   unsigned int line;			/* Line number of definition.  */
