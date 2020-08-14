@@ -157,12 +157,14 @@ struct symbol_entry
   void *symbol;
 };
 
+typedef struct symbol_entry symbol_entry_t;
+
 /* Hash function for a symbol_entry.  */
 
 static hashval_t
 hash_symbol_entry (const void *e)
 {
-  const struct symbol_entry *entry = (const struct symbol_entry *) e;
+  const symbol_entry_t *entry = (const symbol_entry_t *) e;
   return htab_hash_string (entry->symbol_name);
 }
 
@@ -171,10 +173,27 @@ hash_symbol_entry (const void *e)
 static int
 eq_symbol_entry (const void *a, const void *b)
 {
-  const struct symbol_entry *ea = (const struct symbol_entry *) a;
-  const struct symbol_entry *eb = (const struct symbol_entry *) b;
+  const symbol_entry_t *ea = (const symbol_entry_t *) a;
+  const symbol_entry_t *eb = (const symbol_entry_t *) b;
 
   return strcmp (ea->symbol_name, eb->symbol_name) == 0;
+}
+
+static symbol_entry_t *
+symbol_entry_alloc (const char *symbol_name, void *symbol)
+{
+  symbol_entry_t *entry = XNEW (symbol_entry_t);
+  entry->symbol_name = symbol_name;
+  entry->symbol = symbol;
+  return entry;
+}
+
+static void *
+symbol_entry_find (htab_t table, const char *symbol_name)
+{
+  symbol_entry_t needle = { symbol_name, NULL };
+  symbol_entry_t *entry = htab_find (table, &needle);
+  return entry != NULL ? entry->symbol : NULL;
 }
 
 
@@ -196,10 +215,10 @@ extern int new_broken_words;
 #endif
 
 /* symbol-name => struct symbol pointer */
-static struct htab *sy_hash;
+static htab_t sy_hash;
 
 /* Table of local symbols.  */
-static struct htab *local_hash;
+static htab_t local_hash;
 
 /* Below are commented in "symbols.h".  */
 symbolS *symbol_rootP;
@@ -367,12 +386,7 @@ local_symbol_make (const char *name, segT section, valueT val, fragS *frag)
   local_symbol_set_frag (ret, frag);
   ret->lsy_value = val;
 
-  struct symbol_entry *entry = XNEW (struct symbol_entry);
-  entry->symbol_name = name_copy;
-  entry->symbol = ret;
-
-  void **slot = htab_find_slot (local_hash, entry, INSERT);
-  *slot = entry;
+  htab_insert (local_hash, symbol_entry_alloc (name_copy, ret));
 
   return ret;
 }
@@ -409,11 +423,7 @@ local_symbol_convert (struct local_symbol *locsym)
   local_symbol_mark_converted (locsym);
   local_symbol_set_real_symbol (locsym, ret);
 
-  struct symbol_entry *entry = XNEW (struct symbol_entry);
-  entry->symbol_name = locsym->lsy_name;
-  entry->symbol = NULL;
-  void **slot = htab_find_slot (local_hash, entry, INSERT);
-  *slot = entry;
+  htab_insert (local_hash, symbol_entry_alloc (locsym->lsy_name, NULL));
 
   return ret;
 }
@@ -652,20 +662,15 @@ colon (/* Just seen "x:" - rattle symbols & frags.  */
 void
 symbol_table_insert (symbolS *symbolP)
 {
-  void **slot;
-
   know (symbolP);
   know (S_GET_NAME (symbolP));
 
-  struct symbol_entry *entry = XNEW (struct symbol_entry);
-  entry->symbol_name = S_GET_NAME (symbolP);
-  entry->symbol = (struct local_symbol *) symbolP;
   if (LOCAL_SYMBOL_CHECK (symbolP))
-    slot = htab_find_slot (local_hash, entry, INSERT);
+    htab_insert (local_hash, symbol_entry_alloc (S_GET_NAME (symbolP),
+						 (struct local_symbol *)symbolP));
   else
-    slot = htab_find_slot (sy_hash, entry, INSERT);
-
-  *slot = entry;
+    htab_insert (sy_hash, symbol_entry_alloc (S_GET_NAME (symbolP),
+					      (struct local_symbol *)symbolP));
 }
 
 /* If a symbol name does not exist, create it as undefined, and insert
@@ -899,16 +904,11 @@ symbol_find_exact (const char *name)
 symbolS *
 symbol_find_exact_noref (const char *name, int noref)
 {
-  symbolS* sym = NULL;
+  symbolS *sym = symbol_entry_find (local_hash, name);
+  if (sym)
+    return sym;
 
-  struct symbol_entry needle = { name, NULL };
-  struct symbol_entry *entry = htab_find (local_hash, &needle);
-  if (entry != NULL && entry->symbol)
-    return (symbolS *) entry->symbol;
-
-  entry = htab_find (sy_hash, &needle);
-  if (entry != NULL && entry->symbol)
-    sym = entry->symbol;
+  sym = symbol_entry_find (sy_hash, name);
 
   /* Any references to the symbol, except for the reference in
      .weakref, must clear this flag, such that the symbol does not
@@ -1707,7 +1707,7 @@ resolve_symbol_value (symbolS *symp)
 static int
 resolve_local_symbol (void **slot, void *arg ATTRIBUTE_UNUSED)
 {
-  struct symbol_entry *entry = *((struct symbol_entry **) slot);
+  symbol_entry_t *entry = *((symbol_entry_t **) slot);
   if (entry->symbol != NULL)
     resolve_symbol_value ((symbolS *) entry->symbol);
 

@@ -704,6 +704,13 @@ htab_find_slot (htab_t htab, const PTR element, enum insert_option insert)
 				   insert);
 }
 
+void
+htab_insert (htab_t htab, const PTR element)
+{
+  void **slot = htab_find_slot (htab, element, INSERT);
+  *slot = element;
+}
+
 /* This function deletes an element with the given value from hash
    table (the hash is computed from the element).  If there is no matching
    element in the hash table, this function does nothing.  */
