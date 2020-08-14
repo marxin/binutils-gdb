@@ -85,4 +85,7 @@ extern void hash_traverse (struct hash_control *,
 extern void hash_print_statistics (FILE *, const char *name,
 				   struct hash_control *);
 
+extern void htab_print_statistics (FILE *, const char *name,
+				   struct htab *);
+
 #endif /* HASH_H */
