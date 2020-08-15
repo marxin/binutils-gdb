@@ -81,6 +81,96 @@ extern int macro_nest;
 
 extern struct htab *macro_hash;
 
+struct macro_hash_entry
+{
+  const char *name;
+  macro_entry *macro;
+};
+
+typedef struct macro_hash_entry  macro_hash_entry_t;
+
+/* Hash function for a macro_hash_entry.  */
+
+static inline hashval_t
+hash_macro_entry (const void *e)
+{
+  const macro_hash_entry_t *entry = (const macro_hash_entry_t *) e;
+  return htab_hash_string (entry->name);
+}
+
+/* Equality function for a macro_hash_entry.  */
+
+static inline int
+eq_macro_entry (const void *a, const void *b)
+{
+  const macro_hash_entry_t *ea = (const macro_hash_entry_t *) a;
+  const macro_hash_entry_t *eb = (const macro_hash_entry_t *) b;
+
+  return strcmp (ea->name, eb->name) == 0;
+}
+
+static inline macro_hash_entry_t *
+macro_entry_alloc (const char *name, macro_entry *macro)
+{
+  macro_hash_entry_t *entry = XNEW (macro_hash_entry_t);
+  entry->name = name;
+  entry->macro = macro;
+  return entry;
+}
+
+static inline macro_entry *
+macro_entry_find (htab_t table, const char *name)
+{
+  macro_hash_entry_t needle = { name, NULL };
+  macro_hash_entry_t *entry = htab_find (table, &needle);
+  return entry != NULL ? entry->macro : NULL;
+}
+
+struct formal_hash_entry
+{
+  const char *name;
+  formal_entry *formal;
+};
+
+typedef struct formal_hash_entry  formal_hash_entry_t;
+
+/* Hash function for a macro_hash_entry.  */
+
+static inline hashval_t
+hash_formal_entry (const void *e)
+{
+  const formal_hash_entry_t *entry = (const formal_hash_entry_t *) e;
+  return htab_hash_string (entry->name);
+}
+
+/* Equality function for a formal_hash_entry.  */
+
+static inline int
+eq_formal_entry (const void *a, const void *b)
+{
+  const formal_hash_entry_t *ea = (const formal_hash_entry_t *) a;
+  const formal_hash_entry_t *eb = (const formal_hash_entry_t *) b;
+
+  return strcmp (ea->name, eb->name) == 0;
+}
+
+static inline formal_hash_entry_t *
+formal_entry_alloc (const char *name, formal_entry *formal)
+{
+  formal_hash_entry_t *entry = XNEW (formal_hash_entry_t);
+  entry->name = name;
+  entry->formal = formal;
+  return entry;
+}
+
+static inline formal_entry *
+formal_entry_find (htab_t table, const char *name)
+{
+  formal_hash_entry_t needle = { name, NULL };
+  formal_hash_entry_t *entry = htab_find (table, &needle);
+  return entry != NULL ? entry->formal : NULL;
+}
+
 extern int buffer_and_nest (const char *, const char *, sb *,
 			    size_t (*) (sb *));
 extern void macro_init (int, int, int,
