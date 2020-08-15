@@ -566,6 +566,7 @@ int generic_force_reloc (struct fix *);
 #include "write.h"
 #include "frags.h"
 #include "hash.h"
+#include "hashtab.h"
 #include "read.h"
 #include "symbols.h"
 
