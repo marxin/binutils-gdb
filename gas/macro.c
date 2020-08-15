@@ -48,12 +48,14 @@ struct macro_hash_entry
   macro_entry *macro;
 };
 
+typedef struct macro_hash_entry  macro_hash_entry_t;
+
 /* Hash function for a macro_hash_entry.  */
 
 static hashval_t
 hash_macro_entry (const void *e)
 {
-  const struct macro_hash_entry *entry = (const struct macro_hash_entry *) e;
+  const macro_hash_entry_t *entry = (const macro_hash_entry_t *) e;
   return htab_hash_string (entry->name);
 }
 
@@ -62,10 +64,27 @@ hash_macro_entry (const void *e)
 static int
 eq_macro_entry (const void *a, const void *b)
 {
-  const struct macro_hash_entry *ea = (const struct macro_hash_entry *) a;
-  const struct macro_hash_entry *eb = (const struct macro_hash_entry *) b;
+  const macro_hash_entry_t *ea = (const macro_hash_entry_t *) a;
+  const macro_hash_entry_t *eb = (const macro_hash_entry_t *) b;
 
   return strcmp (ea->name, eb->name) == 0;
+}
+
+static macro_hash_entry_t *
+macro_entry_alloc (const char *name, macro_entry *macro)
+{
+  macro_hash_entry_t *entry = XNEW (macro_hash_entry_t);
+  entry->name = name;
+  entry->macro = macro;
+  return entry;
+}
+
+static macro_entry *
+macro_entry_find (htab_t table, const char *name)
+{
+  macro_hash_entry_t needle = { name, NULL };
+  macro_hash_entry_t *entry = htab_find (table, &needle);
+  return entry != NULL ? entry->macro : NULL;
 }
 
 struct formal_hash_entry
@@ -74,12 +93,14 @@ struct formal_hash_entry
   formal_entry *formal;
 };
 
+typedef struct formal_hash_entry  formal_hash_entry_t;
+
 /* Hash function for a macro_hash_entry.  */
 
 static hashval_t
 hash_formal_entry (const void *e)
 {
-  const struct formal_hash_entry *entry = (const struct formal_hash_entry *) e;
+  const formal_hash_entry_t *entry = (const formal_hash_entry_t *) e;
   return htab_hash_string (entry->name);
 }
 
@@ -88,12 +109,28 @@ hash_formal_entry (const void *e)
 static int
 eq_formal_entry (const void *a, const void *b)
 {
-  const struct formal_hash_entry *ea = (const struct formal_hash_entry *) a;
-  const struct formal_hash_entry *eb = (const struct formal_hash_entry *) b;
+  const formal_hash_entry_t *ea = (const formal_hash_entry_t *) a;
+  const formal_hash_entry_t *eb = (const formal_hash_entry_t *) b;
 
   return strcmp (ea->name, eb->name) == 0;
 }
 
+static formal_hash_entry_t *
+formal_entry_alloc (const char *name, formal_entry *formal)
+{
+  formal_hash_entry_t *entry = XNEW (formal_hash_entry_t);
+  entry->name = name;
+  entry->formal = formal;
+  return entry;
+}
+
+static formal_entry *
+formal_entry_find (htab_t table, const char *name)
+{
+  formal_hash_entry_t needle = { name, NULL };
+  formal_hash_entry_t *entry = htab_find (table, &needle);
+  return entry != NULL ? entry->formal : NULL;
+}
 
 /* The macro hash table.  */
 
@@ -620,16 +657,8 @@ do_formals (macro_entry *macro, size_t idx, sb *in)
 	}
 
       /* Add to macro's hash table.  */
-      struct formal_hash_entry needle = { name, NULL };
-      struct formal_hash_entry *entry = htab_find (macro->formal_hash, &needle);
-      if (entry == NULL || entry->formal == NULL)
-	{
-	  entry = XNEW (struct formal_hash_entry);
-	  entry->name = name;
-	  entry->formal = formal;
-	  void **slot = htab_find_slot (macro->formal_hash, entry, INSERT);
-	  *slot = entry;
-	}
+      if (formal_entry_find (macro->formal_hash, name) == NULL)
+	htab_insert (macro->formal_hash, formal_entry_alloc (name, formal));
       else
 	as_bad_where (macro->file,
 		      macro->line,
@@ -667,18 +696,13 @@ do_formals (macro_entry *macro, size_t idx, sb *in)
       sb_add_string (&formal->name, name);
 
       /* Add to macro's hash table.  */
-      struct formal_hash_entry needle = { name, NULL };
-      struct formal_hash_entry *entry = htab_find (macro->formal_hash, &needle);
-      if (entry != NULL && entry->formal)
+      if (formal_entry_find (macro->formal_hash, name))
 	as_bad_where (macro->file,
 		      macro->line,
 		      _("Reserved word `%s' used as parameter in macro `%s'"),
 		      name,
 		      macro->name);
-      entry = XNEW (struct formal_hash_entry);
-      entry->name = name;
-      entry->formal = formal;
-      *htab_find_slot (macro->formal_hash, entry, INSERT) = entry;
+      htab_insert (macro->formal_hash, formal_entry_alloc (name, formal));
 
       formal->index = NARG_INDEX;
       *p = formal;
@@ -775,18 +799,10 @@ define_macro (size_t idx, sb *in, sb *label,
   /* And stick it in the macro hash table.  */
   for (idx = 0; idx < name.len; idx++)
     name.ptr[idx] = TOLOWER (name.ptr[idx]);
-  struct macro_hash_entry needle = { macro->name, NULL };
-  struct macro_hash_entry *entry = htab_find (macro_hash, &needle);
-  if (entry != NULL && entry->macro != NULL)
+  if (macro_entry_find (macro_hash, macro->name))
     error = _("Macro `%s' was already defined");
   if (!error)
-    {
-      entry = XNEW (struct macro_hash_entry);
-      entry->name = macro->name;
-      entry->macro = macro;
-      void **slot = htab_find_slot (macro_hash, entry, INSERT);
-      *slot = entry;
-    }
+    htab_insert (macro_hash, macro_entry_alloc (macro->name, macro));
 
   if (namep != NULL)
     *namep = macro->name;
@@ -830,11 +846,7 @@ sub_actual (size_t start, sb *in, sb *t, struct htab *formal_hash,
       && (src == start || in->ptr[src - 1] != '@'))
     ptr = NULL;
   else
-    {
-      struct formal_hash_entry needle = { sb_terminate (t), NULL };
-      struct formal_hash_entry *entry = htab_find (formal_hash, &needle);
-      ptr = entry != NULL ? entry->formal : NULL;
-    }
+    ptr = formal_entry_find (formal_hash, sb_terminate (t));
   if (ptr)
     {
       if (ptr->actual.len)
@@ -992,9 +1004,7 @@ macro_expand_body (sb *in, sb *out, formal_entry *formals,
 
 		  src = get_token (src, in, &f->name);
 		  name = sb_terminate (&f->name);
-		  struct formal_hash_entry needle = { name, NULL };
-		  struct formal_hash_entry *entry = htab_find (formal_hash, &needle);
-		  if (entry == NULL || entry->formal == NULL)
+		  if (formal_entry_find (formal_hash, name) == NULL)
 		    {
 		      static int loccnt;
 		      char buf[20];
@@ -1006,11 +1016,7 @@ macro_expand_body (sb *in, sb *out, formal_entry *formals,
 		      sprintf (buf, IS_ELF ? ".LL%04x" : "LL%04x", ++loccnt);
 		      sb_add_string (&f->actual, buf);
 
-		      entry = XNEW (struct formal_hash_entry);
-		      entry->name = name; 
-		      entry->formal = f;
-		      void **slot = htab_find_slot (formal_hash, entry, INSERT);
-		      *slot = entry;
+		      htab_insert (formal_hash, formal_entry_alloc (name, f));
 		    }
 		  else
 		    {
@@ -1050,9 +1056,7 @@ macro_expand_body (sb *in, sb *out, formal_entry *formals,
 
 	  sb_reset (&t);
 	  src = get_token (src + 2, in, &t);
-	  struct formal_hash_entry needle = { sb_terminate (&t), NULL };
-	  struct formal_hash_entry *entry = htab_find (formal_hash, &needle);
-	  ptr = entry != NULL ? entry->formal : NULL;
+	  ptr = formal_entry_find (formal_hash, sb_terminate (&t));
 	  if (ptr == NULL)
 	    {
 	      /* FIXME: We should really return a warning string here,
@@ -1096,7 +1100,7 @@ macro_expand_body (sb *in, sb *out, formal_entry *formals,
 
       f = loclist->next;
       name = sb_terminate (&loclist->name);
-      struct formal_hash_entry needle = { name, NULL };
+      formal_hash_entry_t needle = { name, NULL };
       htab_remove_elt (formal_hash, &needle);
       del_formal (loclist);
       loclist = f;
@@ -1182,9 +1186,7 @@ macro_expand (size_t idx, sb *in, macro_entry *m, sb *out)
 	    }
 
 	  /* Lookup the formal in the macro's list.  */
-	  struct formal_hash_entry needle = { sb_terminate (&t), NULL };
-	  struct formal_hash_entry *entry = htab_find (m->formal_hash, &needle);
-	  ptr = entry != NULL ? entry->formal : NULL;
+	  ptr = formal_entry_find (m->formal_hash, sb_terminate (&t));
 	  if (!ptr)
 	    {
 	      as_bad (_("Parameter named `%s' does not exist for macro `%s'"),
@@ -1282,9 +1284,7 @@ macro_expand (size_t idx, sb *in, macro_entry *m, sb *out)
 
 	  sb_reset (&t);
 	  sb_add_string (&t, macro_strip_at ? "$NARG" : "NARG");
-	  struct formal_hash_entry needle = { sb_terminate (&t), NULL };
-	  struct formal_hash_entry *entry = htab_find (m->formal_hash, &needle);
-	  ptr = entry != NULL ? entry->formal : NULL;
+	  ptr = formal_entry_find (m->formal_hash, sb_terminate (&t));
 	  sprintf (buffer, "%d", narg);
 	  sb_add_string (&ptr->actual, buffer);
 	}
@@ -1344,9 +1344,7 @@ check_macro (const char *line, sb *expand,
   for (cls = copy; *cls != '\0'; cls ++)
     *cls = TOLOWER (*cls);
 
-  struct macro_hash_entry needle = { copy, NULL };
-  struct macro_hash_entry *entry = htab_find (macro_hash, &needle);
-  macro = entry != NULL ? entry->macro : NULL;
+  macro = macro_entry_find (macro_hash, copy);
   free (copy);
 
   if (macro == NULL)
@@ -1376,7 +1374,7 @@ delete_macro (const char *name)
 {
   char *copy;
   size_t i, len;
-  struct macro_hash_entry *macro;
+  macro_entry *macro;
 
   len = strlen (name);
   copy = XNEWVEC (char, len + 1);
@@ -1387,16 +1385,11 @@ delete_macro (const char *name)
   /* We can only ask hash_delete to free memory if we are deleting
      macros in reverse order to their definition.
      So just clear out the entry.  */
-  struct macro_hash_entry needle = { copy, NULL };
-  macro = htab_find (macro_hash, &needle);
-  if (macro != NULL && macro->macro != NULL)
+  macro = macro_entry_find (macro_hash, copy);
+  if (macro)
     {
-      struct macro_hash_entry *entry = XNEW (struct macro_hash_entry);
-      entry->name = copy;
-      entry->macro = NULL;
-      void **slot = htab_find_slot (macro_hash, entry, INSERT);
-      *slot = entry;
-      free_macro (macro->macro);
+      htab_insert (macro_hash, macro_entry_alloc (copy, NULL));
+      free_macro (macro);
     }
   else
     as_warn (_("Attempt to purge non-existing macro `%s'"), copy);
@@ -1431,11 +1424,7 @@ expand_irp (int irpc, size_t idx, sb *in, sb *out, size_t (*get_line) (sb *))
   h = htab_create_alloc (16, hash_formal_entry, eq_formal_entry,
 			 NULL, xcalloc, free);
 
-  struct formal_hash_entry *entry = XNEW (struct formal_hash_entry);
-  entry->name = sb_terminate (&f.name);
-  entry->formal = &f;
-  void **slot = htab_find_slot (h, entry, INSERT);
-  *slot = entry;
+  htab_insert (h, formal_entry_alloc (sb_terminate (&f.name), &f));
 
   f.index = 1;
   f.next = NULL;
