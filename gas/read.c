@@ -302,13 +302,14 @@ struct po_entry
   const pseudo_typeS *pop;
 };
 
+typedef struct po_entry po_entry_t;
 
 /* Hash function for a po_entry.  */
 
 static hashval_t
 hash_po_entry (const void *e)
 {
-  const struct po_entry *entry = (const struct po_entry *) e;
+  const po_entry_t *entry = (const po_entry_t *) e;
   return htab_hash_string (entry->poc_name);
 }
 
@@ -317,11 +318,29 @@ hash_po_entry (const void *e)
 static int
 eq_po_entry (const void *a, const void *b)
 {
-  const struct po_entry *ea = (const struct po_entry *) a;
-  const struct po_entry *eb = (const struct po_entry *) b;
+  const po_entry_t *ea = (const po_entry_t *) a;
+  const po_entry_t *eb = (const po_entry_t *) b;
 
   return strcmp (ea->poc_name, eb->poc_name) == 0;
 }
+
+static po_entry_t *
+po_entry_alloc (const char *poc_name, const pseudo_typeS *pop)
+{
+  po_entry_t *entry = XNEW (po_entry_t);
+  entry->poc_name = poc_name;
+  entry->pop = pop;
+  return entry;
+}
+
+static const pseudo_typeS *
+po_entry_find (htab_t table, const char *poc_name)
+{
+  po_entry_t needle = { poc_name, NULL };
+  po_entry_t *entry = htab_find (table, &needle);
+  return entry != NULL ? entry->pop : NULL;
+}
+
 
 static struct htab *po_hash;
 
@@ -545,18 +564,11 @@ pop_insert (const pseudo_typeS *table)
   const pseudo_typeS *pop;
   for (pop = table; pop->poc_name; pop++)
     {
-      struct po_entry *entry = XNEW (struct po_entry);
-      entry->poc_name = pop->poc_name;
-      entry->pop = pop;
-      gas_assert (pop != NULL);
-      int exists = htab_find (po_hash, entry) != NULL;
+      int exists = po_entry_find (po_hash, pop->poc_name) != NULL;
       if (!pop_override_ok && exists)
 	as_fatal (_("error constructing %s pseudo-op table"), pop_table_name);
       else if (!exists)
-      {
-	void **slot = htab_find_slot (po_hash, entry, INSERT);
-        *slot = entry;
-      }
+	htab_insert (po_hash, po_entry_alloc (pop->poc_name, pop));
     }
 }
 
@@ -1105,9 +1117,7 @@ read_a_source_file (const char *name)
 		    {
 		      /* The MRI assembler uses pseudo-ops without
 			 a period.  */
-		      struct po_entry needle = { s, NULL }, *entry;
-		      entry = htab_find (po_hash, &needle);
-		      if (entry && entry->pop != NULL && entry->pop->poc_handler == NULL)
+		      if (po_entry_find (po_hash, s) == NULL)
 			pop = NULL;
 		    }
 
@@ -1121,12 +1131,7 @@ read_a_source_file (const char *name)
 			 already know that the pseudo-op begins with a '.'.  */
 
 		      if (pop == NULL)
-			{
-			  struct po_entry needle = { s + 1, NULL }, *entry;
-			  entry = htab_find (po_hash, &needle);
-			  if (entry)
-			    pop = (pseudo_typeS *)entry->pop;
-			}
+			pop = (pseudo_typeS *) po_entry_find (po_hash, s + 1);
 		      if (pop && !pop->poc_handler)
 			pop = NULL;
 
@@ -2780,14 +2785,11 @@ s_macro (int ignore ATTRIBUTE_UNUSED)
 	  symbol_set_frag (line_label, &zero_address_frag);
 	}
 
-      struct po_entry needle = { name, NULL };
-      struct po_entry needle2 = { name + 1, NULL };
-
       if (((NO_PSEUDO_DOT || flag_m68k_mri)
-	   && htab_find (po_hash, &needle) != NULL)
+	   && po_entry_find (po_hash, name) != NULL)
 	  || (!flag_m68k_mri
 	      && *name == '.'
-	      && htab_find (po_hash, &needle2) != NULL))
+	      && po_entry_find (po_hash, name + 1) != NULL))
 	as_warn_where (file,
 		 line,
 		 _("attempt to redefine pseudo-op `%s' ignored"),
