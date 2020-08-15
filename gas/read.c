@@ -6173,7 +6173,7 @@ s_ignore (int arg ATTRIBUTE_UNUSED)
 void
 read_print_statistics (FILE *file)
 {
-  htab_print_statistics (file, "pseudo-op table", po_hash);
+  htab_print_statistics (file, po_hash, "pseudo-op table", "\t");
 }
 
 /* Inserts the given line into the input stream.

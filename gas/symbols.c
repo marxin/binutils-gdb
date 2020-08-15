@@ -3279,8 +3279,8 @@ print_expr (expressionS *exp)
 void
 symbol_print_statistics (FILE *file)
 {
-  htab_print_statistics (file, "symbol table", sy_hash);
-  htab_print_statistics (file, "mini local symbol table", local_hash);
+  htab_print_statistics (file, sy_hash, "symbol table", "\t");
+  htab_print_statistics (file, local_hash, "mini local symbol table", "\t");
   fprintf (file, "%lu mini local symbols created, %lu converted\n",
 	   local_symbol_count, local_symbol_conversion_count);
 }

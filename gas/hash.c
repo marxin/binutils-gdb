@@ -409,18 +409,6 @@ hash_print_statistics (FILE *f ATTRIBUTE_UNUSED,
 #endif
 }
 
-void
-htab_print_statistics (FILE *f,
-		       const char *name,
-		       struct htab *table)
-{
-  fprintf (f, "%s hash statistics:\n", name);
-  fprintf (f, "\t%u searches\n", table->searches);
-  fprintf (f, "\t%lu elements\n", htab_elements (table));
-  fprintf (f, "\t%lu table size\n", htab_size (table));
-  fprintf (f, "\t%.2f collisions\n", htab_collisions (table));
-}
-
 
 #ifdef TEST
 
