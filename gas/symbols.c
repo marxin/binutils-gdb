@@ -154,6 +154,7 @@ struct local_symbol
 struct symbol_entry
 {
   const char *symbol_name;
+  hashval_t hash;
   void *symbol;
 };
 
@@ -164,8 +165,11 @@ typedef struct symbol_entry symbol_entry_t;
 static hashval_t
 hash_symbol_entry (const void *e)
 {
-  const symbol_entry_t *entry = (const symbol_entry_t *) e;
-  return htab_hash_string (entry->symbol_name);
+  symbol_entry_t *entry = (symbol_entry_t *) e;
+  if (entry->hash == 0)
+    entry->hash = htab_hash_string (entry->symbol_name);
+
+  return entry->hash;
 }
 
 /* Equality function for a symbol_entry.  */
@@ -184,6 +188,7 @@ symbol_entry_alloc (const char *symbol_name, void *symbol)
 {
   symbol_entry_t *entry = XNEW (symbol_entry_t);
   entry->symbol_name = symbol_name;
+  entry->hash = 0;
   entry->symbol = symbol;
   return entry;
 }
@@ -191,7 +196,7 @@ symbol_entry_alloc (const char *symbol_name, void *symbol)
 static void *
 symbol_entry_find (htab_t table, const char *symbol_name)
 {
-  symbol_entry_t needle = { symbol_name, NULL };
+  symbol_entry_t needle = { symbol_name, 0, NULL };
   symbol_entry_t *entry = htab_find (table, &needle);
   return entry != NULL ? entry->symbol : NULL;
 }
