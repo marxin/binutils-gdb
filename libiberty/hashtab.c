@@ -822,7 +822,8 @@ htab_print_statistics (FILE *f, htab_t table, const char *name,
   fprintf (f, "%s%u searches\n", prefix, table->searches);
   fprintf (f, "%s%lu elements\n", prefix, htab_elements (table));
   fprintf (f, "%s%lu table size\n", prefix, htab_size (table));
-  fprintf (f, "%s%.2f collisions\n", prefix, htab_collisions (table));
+  fprintf (f, "%s%.2f collisions per search\n",
+	   prefix, htab_collisions (table));
 }
 
 /* Hash P as a null-terminated string.
