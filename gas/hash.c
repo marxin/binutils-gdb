@@ -407,6 +407,30 @@ hash_print_statistics (FILE *f ATTRIBUTE_UNUSED,
   fprintf (f, "\t%lu empty slots\n", empty);
 #endif
 }
+
+/* Insert ELEMENT into HTAB.  If the element exists, it is overwritten.  */
+
+void
+htab_insert (htab_t htab, PTR element)
+{
+  void **slot = htab_find_slot (htab, element, INSERT);
+  if (slot != NULL && htab->del_f)
+    (*htab->del_f) (*slot);
+
+  *slot = element;
+}
+
+/* Print statistics about a hash table.  */
+
+void
+htab_print_statistics (FILE *f, const char *name, htab_t table)
+{
+  fprintf (f, "%s hash statistics:\n", name);
+  fprintf (f, "\t%u searches\n", table->searches);
+  fprintf (f, "\t%lu elements\n", htab_elements (table));
+  fprintf (f, "\t%lu table size\n", htab_size (table));
+  fprintf (f, "\t%.2f collisions per search\n", htab_collisions (table));
+}
 
 #ifdef TEST
 
