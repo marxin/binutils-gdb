@@ -25169,7 +25169,6 @@ static const struct asm_opcode insns[] =
  cCL("expe",	e788100, 2, (RF, RF_IF),     rd_rm),
  cCL("expep",	e788120, 2, (RF, RF_IF),     rd_rm),
  cCL("expem",	e788140, 2, (RF, RF_IF),     rd_rm),
- cCL("expdz",	e788160, 2, (RF, RF_IF),     rd_rm),
 
  cCL("sins",	e808100, 2, (RF, RF_IF),     rd_rm),
  cCL("sinsp",	e808120, 2, (RF, RF_IF),     rd_rm),
@@ -27996,7 +27995,11 @@ arm_tc_equal_in_insn (int c ATTRIBUTE_UNUSED, char * name)
 	    already_warned = str_htab_create ();
 	  /* Only warn about the symbol once.  To keep the code
 	     simple we let str_hash_insert do the lookup for us.  */
-	  str_hash_insert (already_warned, nbuf, NULL);
+	  if (str_hash_find (already_warned, nbuf) == NULL)
+	    {
+	      as_warn (_("[-mwarn-syms]: Assignment makes a symbol match an ARM instruction: %s"), name);
+	      str_hash_insert (already_warned, nbuf, NULL);
+	    }
 	}
       else
 	free (nbuf);
@@ -30726,7 +30729,10 @@ md_begin (void)
     as_fatal (_("virtual memory exhausted"));
 
   for (i = 0; i < sizeof (insns) / sizeof (struct asm_opcode); i++)
-    str_hash_insert (arm_ops_hsh, insns[i].template_name, (void *) (insns + i));
+    {
+      gas_assert (str_hash_find (arm_ops_hsh, insns[i].template_name) == NULL);
+      str_hash_insert (arm_ops_hsh, insns[i].template_name, (void *) (insns + i));
+    }
   for (i = 0; i < sizeof (conds) / sizeof (struct asm_cond); i++)
     str_hash_insert (arm_cond_hsh, conds[i].template_name, (void *) (conds + i));
   for (i = 0; i < sizeof (vconds) / sizeof (struct asm_cond); i++)

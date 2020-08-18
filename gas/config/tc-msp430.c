@@ -1828,7 +1828,8 @@ md_begin (void)
   msp430_hash = str_htab_create ();
 
   for (opcode = msp430_opcodes; opcode->name; opcode++)
-    str_hash_insert (msp430_hash, opcode->name, (char *) opcode);
+    if (str_hash_find (msp430_hash, opcode->name) == NULL)
+      str_hash_insert (msp430_hash, opcode->name, (char *) opcode);
 
   bfd_set_arch_mach (stdoutput, TARGET_ARCH,
 		     target_is_430x () ? bfd_mach_msp430x : bfd_mach_msp11);

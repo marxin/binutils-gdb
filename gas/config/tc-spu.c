@@ -120,8 +120,9 @@ md_begin (void)
 
   for (i = 0; i < spu_num_opcodes; i++)
     /* hash each mnemonic and record its position */
-    str_hash_insert (op_hash, spu_opcodes[i].mnemonic,
-		     (void *) &spu_opcodes[i]);
+    if (str_hash_find (op_hash, spu_opcodes[i].mnemonic) == NULL)
+      str_hash_insert (op_hash, spu_opcodes[i].mnemonic,
+		       (void *) &spu_opcodes[i]);
 }
 
 const char *md_shortopts = "";

@@ -11784,6 +11784,7 @@ dot_alias (int section)
     }
 
   /* Check if alias has been used before.  */
+
   h = (struct alias *) str_hash_find (ahash, alias);
   if (h)
     {
@@ -11792,6 +11793,7 @@ dot_alias (int section)
 		alias, kind, h->name);
       obstack_free (&notes, name);
       obstack_free (&notes, alias);
+      goto out;
     }
 
   /* Check if name already has an alias.  */
@@ -11802,6 +11804,7 @@ dot_alias (int section)
 	as_bad (_("%s `%s' already has an alias `%s'"), kind, name, a);
       obstack_free (&notes, name);
       obstack_free (&notes, alias);
+      goto out;
     }
 
   h = XNEW (struct alias);
@@ -11811,6 +11814,7 @@ dot_alias (int section)
   str_hash_insert (ahash, alias, (void *) h);
   str_hash_insert (nhash, name, (void *) alias);
 
+out:
   demand_empty_rest_of_line ();
 }
 

@@ -1964,7 +1964,8 @@ md_begin (void)
       if (strcmp (prev_name, op->name))
 	{
 	  prev_name = (char *) op->name;
-	  str_hash_insert (v850_hash, op->name, (char *) op);
+	  if (str_hash_find (v850_hash, op->name) == NULL)
+	    str_hash_insert (v850_hash, op->name, (char *) op);
 	}
       op++;
     }

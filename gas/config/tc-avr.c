@@ -814,7 +814,8 @@ md_begin (void)
      quick index to the first opcode with a particular name in the opcode
      table.  */
   for (opcode = avr_opcodes; opcode->name; opcode++)
-    str_hash_insert (avr_hash, opcode->name, (char *) opcode);
+    if (str_hash_find (avr_hash, opcode->name) == NULL)
+      str_hash_insert (avr_hash, opcode->name, (char *) opcode);
 
   avr_mod_hash = str_htab_create ();
 
@@ -823,6 +824,7 @@ md_begin (void)
       mod_index m;
 
       m.index = i + 10;
+      str_hash_find (avr_mod_hash, EXP_MOD_NAME (i));
       str_hash_insert (avr_mod_hash, EXP_MOD_NAME (i), m.ptr);
     }
 
