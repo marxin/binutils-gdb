@@ -4337,17 +4337,8 @@ subsym_create_or_replace (char *name, char *value)
   int i;
 
   for (i = macro_level; i > 0; i--)
-    {
-      if (str_hash_find (subsym_hash[i], name))
-	{
-	  hash_replace (subsym_hash[i], name, value);
-	  return;
-	}
-    }
-  if (str_hash_find (subsym_hash[0], name))
-    hash_replace (subsym_hash[0], name, value);
-  else
-    str_hash_insert (subsym_hash[0], name, value);
+    str_hash_insert (subsym_hash[i], name, value);
+  str_hash_insert (subsym_hash[0], name, value);
 }
 
 /* Look up the substitution string replacement for the given symbol.

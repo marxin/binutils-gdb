@@ -4683,12 +4683,7 @@ dot_rot (int type)
       drpp = &dr->next;
       base_reg += num_regs;
 
-      if (str_hash_insert (md.dynreg_hash, name, dr))
-	{
-	  as_bad (_("Attempt to redefine register set `%s'"), name);
-	  obstack_free (&notes, name);
-	  goto err;
-	}
+      str_hash_insert (md.dynreg_hash, name, dr);
 
       if (*input_line_pointer != ',')
 	break;
@@ -7233,7 +7228,6 @@ void
 md_begin (void)
 {
   int i, j, k, t, goodness, best, ok;
-  char name[8];
 
   md.auto_align = 1;
   md.explicit_mode = md.default_explicit_mode;
@@ -11731,10 +11725,9 @@ dot_alias (int section)
   char delim;
   char *end_name;
   int len;
-  const char *error_string;
   struct alias *h;
   const char *a;
-  htab_t ahash, *nhash;
+  htab_t ahash, nhash;
   const char *kind;
 
   delim = get_symbol_name (&name);
@@ -11806,7 +11799,8 @@ dot_alias (int section)
     {
       if (strcmp (a, alias))
 	as_bad (_("%s `%s' already has an alias `%s'"), kind, name, a);
-      goto out;
+      obstack_free (&notes, name);
+      obstack_free (&notes, alias);
     }
 
   h = XNEW (struct alias);
@@ -11849,7 +11843,7 @@ do_alias (void **slot, void *arg ATTRIBUTE_UNUSED)
 void
 ia64_adjust_symtab (void)
 {
-  htab(alias_hash, do_alias, NULL);
+  htab_traverse (alias_hash, do_alias, NULL);
 }
 
 /* It renames the original section name to its alias.  */

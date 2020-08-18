@@ -2583,8 +2583,7 @@ insert_reg_alias (char *str, unsigned number, int type)
   new_reg->builtin = FALSE;
   new_reg->neon = NULL;
 
-  if (str_hash_insert (arm_reg_hsh, name, (void *) new_reg))
-    abort ();
+  str_hash_insert (arm_reg_hsh, name, new_reg);
 
   return new_reg;
 }
@@ -27997,8 +27996,7 @@ arm_tc_equal_in_insn (int c ATTRIBUTE_UNUSED, char * name)
 	    already_warned = str_htab_create ();
 	  /* Only warn about the symbol once.  To keep the code
 	     simple we let str_hash_insert do the lookup for us.  */
-	  if (str_hash_insert (already_warned, nbuf, NULL) == NULL)
-	    as_warn (_("[-mwarn-syms]: Assignment makes a symbol match an ARM instruction: %s"), name);
+	  str_hash_insert (already_warned, nbuf, NULL);
 	}
       else
 	free (nbuf);

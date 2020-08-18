@@ -472,7 +472,7 @@ m68hc11_print_statistics (FILE *file)
   int i;
   struct m68hc11_opcode_def *opc;
 
-  hash_print_statistics (file, "opcode table", m68hc11_hash);
+  htab_print_statistics (file, "opcode table", m68hc11_hash);
 
   opc = m68hc11_opcode_defs;
   if (opc == 0 || m68hc11_nb_opcode_defs == 0)

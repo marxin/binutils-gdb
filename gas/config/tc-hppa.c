@@ -8243,7 +8243,7 @@ md_begin (void)
     {
       const char *name = pa_opcodes[i].name;
 
-      str_hash_insert (op_hash, name, (struct pa_opcode *) &pa_opcodes[i]);
+      str_hash_insert (op_hash, name, &pa_opcodes[i]);
 
       do
 	{

@@ -727,10 +727,7 @@ tic4x_asg (int x ATTRIBUTE_UNUSED)
   c = get_symbol_name (&name);	/* Get terminator.  */
   str = xstrdup (str);
   name = xstrdup (name);
-  if (str_hash_find (tic4x_asg_hash, name))
-    hash_replace (tic4x_asg_hash, name, (void *) str);
-  else
-    str_hash_insert (tic4x_asg_hash, name, (void *) str);
+  str_hash_insert (tic4x_asg_hash, name, str);
   (void) restore_line_pointer (c);
   demand_empty_rest_of_line ();
 }
@@ -1209,7 +1206,7 @@ tic4x_init_symbols (void)
 }
 
 /* Insert a new instruction template into hash table.  */
-static int
+static void
 tic4x_inst_insert (const tic4x_inst_t *inst)
 {
   static char prev_name[16];
@@ -1220,7 +1217,6 @@ tic4x_inst_insert (const tic4x_inst_t *inst)
 
   str_hash_insert (tic4x_op_hash, inst->name, (void *) inst);
   strcpy (prev_name, inst->name);
-  return retval == NULL;
 }
 
 /* Make a new instruction template.  */
@@ -1253,13 +1249,12 @@ tic4x_inst_make (const char *name, unsigned long opcode, const char *args)
 }
 
 /* Add instruction template, creating dynamic templates as required.  */
-static int
+static void
 tic4x_inst_add (const tic4x_inst_t *insts)
 {
   const char *s = insts->name;
   char *d;
   unsigned int i;
-  int ok = 1;
   char name[16];
 
   d = name;
@@ -1301,7 +1296,7 @@ tic4x_inst_add (const tic4x_inst_t *insts)
 					 (*s == 'B' ? 16 : 23)),
 					insts[k].args);
 		  if (k == 0)	/* Save strcmp() with following func.  */
-		    ok &= tic4x_inst_insert (inst);
+		    tic4x_inst_insert (inst);
 		  k++;
 		}
 	      while (!strcmp (insts->name,
@@ -1311,7 +1306,7 @@ tic4x_inst_add (const tic4x_inst_t *insts)
 	  break;
 
 	case '\0':
-	  return tic4x_inst_insert (insts);
+	  tic4x_inst_insert (insts);
 	  break;
 
 	default:
@@ -1327,7 +1322,6 @@ tic4x_inst_add (const tic4x_inst_t *insts)
 void
 md_begin (void)
 {
-  int ok = 1;
   unsigned int i;
 
   /* Setup the proper opcode level according to the
@@ -1366,13 +1360,10 @@ md_begin (void)
 
   /* Add mnemonics to hash table, expanding conditional mnemonics on fly.  */
   for (i = 0; i < tic4x_num_insts; i++)
-    ok &= tic4x_inst_add (tic4x_insts + i);
+    tic4x_inst_add (tic4x_insts + i);
 
   /* Create dummy inst to avoid errors accessing end of table.  */
   tic4x_inst_make ("", 0, "");
-
-  if (!ok)
-    as_fatal ("Broken assembler.  No assembly attempted.");
 
   /* Add registers to symbol table.  */
   tic4x_init_regtable ();
