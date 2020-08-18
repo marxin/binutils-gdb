@@ -11790,7 +11790,8 @@ dot_alias (int section)
       if (strcmp (h->name, name))
 	as_bad (_("`%s' is already the alias of %s `%s'"),
 		alias, kind, h->name);
-      goto out;
+      obstack_free (&notes, name);
+      obstack_free (&notes, alias);
     }
 
   /* Check if name already has an alias.  */

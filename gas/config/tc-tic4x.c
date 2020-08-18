@@ -1213,7 +1213,7 @@ tic4x_inst_insert (const tic4x_inst_t *inst)
 
   /* Only insert the first name if have several similar entries.  */
   if (!strcmp (inst->name, prev_name) || inst->name[0] == '\0')
-    return 1;
+    return;
 
   str_hash_insert (tic4x_op_hash, inst->name, (void *) inst);
   strcpy (prev_name, inst->name);
@@ -1262,7 +1262,7 @@ tic4x_inst_add (const tic4x_inst_t *insts)
   /* We do not care about INSNs that is not a part of our
      oplevel setting.  */
   if ((insts->oplevel & tic4x_oplevel) == 0)
-    return ok;
+    return;
 
   while (1)
     {
@@ -1287,7 +1287,7 @@ tic4x_inst_add (const tic4x_inst_t *insts)
 
 	      /* If instruction found then have already processed it.  */
 	      if (str_hash_find (tic4x_op_hash, name))
-		return 1;
+		return;
 
 	      do
 		{
@@ -1302,12 +1302,11 @@ tic4x_inst_add (const tic4x_inst_t *insts)
 	      while (!strcmp (insts->name,
 			      insts[k].name));
 	    }
-	  return ok;
-	  break;
+	  return;
 
 	case '\0':
 	  tic4x_inst_insert (insts);
-	  break;
+	  return;
 
 	default:
 	  *d++ = *s++;
