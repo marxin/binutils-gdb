@@ -84,8 +84,8 @@ progressfn (debuginfod_client *c, long cur, long total)
     {
       /* Print this message only once.  */
       data->has_printed = true;
-      printf_filtered ("Downloading %s %ps...\n",
-		       data->desc,
+      printf_filtered ("Downloading %.2f MiB %s %ps...\n",
+		       1.0f * total / (1024 * 1024), data->desc,
 		       styled_string (file_name_style.style (), data->fname));
     }
 
