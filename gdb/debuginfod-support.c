@@ -46,12 +46,12 @@ debuginfod_debuginfo_query (const unsigned char *build_id,
 struct user_data
 {
   user_data (const char *desc, const char *fname)
-    : desc (desc), fname (fname), has_printed (false)
+    : desc (desc), fname (fname), last_percent_printed (-1)
   { }
 
   const char * const desc;
   const char * const fname;
-  bool has_printed;
+  long last_percent_printed;
 };
 
 /* Deleter for a debuginfod_client.  */
@@ -80,13 +80,20 @@ progressfn (debuginfod_client *c, long cur, long total)
       return 1;
     }
 
-  if (!data->has_printed && total != 0)
+  if (total != 0)
     {
       /* Print this message only once.  */
-      data->has_printed = true;
-      printf_filtered ("Downloading %s %ps...\n",
-		       data->desc,
-		       styled_string (file_name_style.style (), data->fname));
+      long percent = 100 * cur / total;
+      if (percent != data->last_percent_printed)
+	{
+	  data->last_percent_printed = percent;
+	  printf_filtered ("\rDownloading %.2f MB %s %ps.. %3ld%%%s",
+			   1.0f * total / (1024 * 1024),
+			   data->desc,
+			   styled_string (file_name_style.style (), data->fname),
+			   percent, cur == total ? "\n" : "");
+	  gdb_flush (gdb_stdout);
+	}
     }
 
   return 0;
